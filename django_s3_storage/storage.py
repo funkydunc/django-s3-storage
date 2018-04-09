@@ -336,16 +336,21 @@ class S3Storage(Storage):
         self.s3_connection.delete_object(**self._object_params(name))
 
     def exists(self, name):
+        # 2018 04 09 Duncan - will always be false in our case as we make a unique path
+        return False
         name = _to_posix_path(name)
         if name.endswith("/"):
-            # This looks like a directory, but on S3 directories are virtual, so we need to see if the key starts
-            # with this prefix.
-            results = self.s3_connection.list_objects_v2(
-                Bucket=self.settings.AWS_S3_BUCKET_NAME,
-                MaxKeys=1,
-                Prefix=self._get_key_name(name) + "/",  # Add the slash again, since _get_key_name removes it.
-            )
-            return "Contents" in results
+            try:
+                # This looks like a directory, but on S3 directories are virtual, so we need to see if the key starts
+                # with this prefix.
+                results = self.s3_connection.list_objects_v2(
+                    Bucket=self.settings.AWS_S3_BUCKET_NAME,
+                    MaxKeys=1,
+                    Prefix=self._get_key_name(name) + "/",  # Add the slash again, since _get_key_name removes it.
+                )
+                return "Contents" in results
+            except ClientError:
+                return False
         # This may be a file or a directory. Check if getting the file metadata throws an error.
         try:
             self.meta(name)
